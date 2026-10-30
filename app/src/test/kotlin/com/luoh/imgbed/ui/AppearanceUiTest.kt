@@ -114,11 +114,17 @@ class AppearanceUiTest {
         // auto-idler to advance an open text-input window indefinitely.
         compose.mainClock.autoAdvance = false
         compose.onNodeWithText("主调颜色").performClick()
+        // A Dialog mounts a separate Android view root. Flush its layout before
+        // advancing animations in that new root or locating the editable node.
+        repeat(3) {
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+        }
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithText("十六进制颜色").performTextReplacement("#XYZ")
+        compose.onNode(hasSetTextAction()).performTextReplacement("#XYZ")
         compose.mainClock.advanceTimeBy(300)
         compose.onNodeWithText("应用", substring = false).assertIsNotEnabled()
-        compose.onNodeWithText("十六进制颜色").performTextReplacement("#111111")
+        compose.onNode(hasSetTextAction()).performTextReplacement("#111111")
         compose.mainClock.advanceTimeBy(300)
         compose.onNodeWithText("应用", substring = false).performClick()
         compose.mainClock.advanceTimeBy(500)
