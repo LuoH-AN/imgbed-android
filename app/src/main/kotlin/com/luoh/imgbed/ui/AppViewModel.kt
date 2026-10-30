@@ -44,6 +44,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _remoteDirectory = MutableStateFlow("")
     val remoteDirectory = _remoteDirectory.asStateFlow()
 
+    private val _remoteLoaded = MutableStateFlow(false)
+    val remoteLoaded = _remoteLoaded.asStateFlow()
+    private val _remoteLoading = MutableStateFlow(false)
+    val remoteLoading = _remoteLoading.asStateFlow()
+    private val _remoteError = MutableStateFlow("")
+    val remoteError = _remoteError.asStateFlow()
+    private var remoteQuery = ""
+
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
 
@@ -129,26 +137,40 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun refreshRemote(search: String = "") {
+    fun refreshRemote(search: String = remoteQuery) {
         if (_busy.value) return
+        remoteQuery = search
         viewModelScope.launch {
             _busy.value = true
+            _remoteLoading.value = true
+            _remoteError.value = ""
             runCatching {
                 client.list(_upload.value.serverUrl, _token.value, _remoteDirectory.value, search)
-            }.onSuccess { _remote.value = it }
-                .onFailure { _message.value = it.message ?: "读取文件列表失败" }
+            }.onSuccess {
+                _remote.value = it
+                _remoteLoaded.value = true
+            }.onFailure {
+                _remoteError.value = it.message ?: "读取文件列表失败"
+            }
+            _remoteLoading.value = false
             _busy.value = false
         }
     }
 
     fun enterDirectory(value: String) {
+        if (_busy.value) return
         _remoteDirectory.value = value.trim('/')
-        refreshRemote()
+        _remote.value = RemotePage(emptyList(), emptyList(), 0)
+        _remoteLoaded.value = false
+        refreshRemote("")
     }
 
     fun goParentDirectory() {
+        if (_busy.value) return
         _remoteDirectory.value = _remoteDirectory.value.substringBeforeLast('/', "")
-        refreshRemote()
+        _remote.value = RemotePage(emptyList(), emptyList(), 0)
+        _remoteLoaded.value = false
+        refreshRemote("")
     }
 
     fun deleteRemote(file: RemoteFile) = remoteAction("已删除 ${file.fileName}") {
@@ -177,8 +199,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess {
                     _message.value = successMessage
                     runCatching {
-                        client.list(_upload.value.serverUrl, _token.value, _remoteDirectory.value)
+                        client.list(_upload.value.serverUrl, _token.value, _remoteDirectory.value, remoteQuery)
                     }.onSuccess { _remote.value = it }
+                        .onFailure { _remoteError.value = it.message ?: "刷新失败，请重试" }
                 }
                 .onFailure { _message.value = it.message ?: "操作失败" }
             _busy.value = false

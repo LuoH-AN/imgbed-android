@@ -33,13 +33,24 @@ JPEG、PNG 与 WebP 使用 Android Bitmap 编码器。AVIF 使用 [awxkee/avif-c
 
 ## 构建
 
-需要 JDK 17 和 Android SDK 36：
+构建与测试统一在 GitHub Actions 执行。推送代码后，工作流使用 JDK 17 和 Android SDK 36 运行：
 
 ```sh
 ./gradlew testDebugUnitTest assembleDebug
 ```
 
-当前运行环境没有 JDK，仓库提供 `.github/workflows/android.yml`，推送到 GitHub 后会自动构建 Debug APK。
+在 [Android Actions](https://github.com/LuoH-AN/imgbed-android/actions/workflows/android.yml) 下载 `imgbed-debug` 构建产物；推送 `v` 开头的标签会发布 APK 到 GitHub Release。
+
+## 界面设计
+
+布局参考 [lyrics-android](https://github.com/LuoH-AN/lyrics-android) 的大标题和分组设置视觉，使用独立编写的 Compose 组件：
+
+- 森林灰绿主题，跟随系统切换浅色和深色。
+- 随滚动收起的大标题，24dp 外圆角、5dp 内圆角的设置分组。
+- 悬浮胶囊导航、选中状态过渡、页面淡入淡出，以及页面滚动位置保留。
+- 上传主视觉、处理方案快捷入口、传输统计和状态队列。
+- 文件搜索、分类筛选、时间／名称排序、目录导航及明确的加载／错误状态。
+- 设置按服务连接、上传偏好、图片处理、文件命名拆分详情页。
 
 ## 项目结构
 
@@ -48,7 +59,9 @@ JPEG、PNG 与 WebP 使用 Android Bitmap 编码器。AVIF 使用 [awxkee/avif-c
 - `network/ImgBedClient.kt`：上传和文件管理 API。
 - `data/AppPreferences.kt`：设置与加密 Token。
 - `ui/AppViewModel.kt`：上传队列和远程文件状态。
-- `ui/ImgBedApp.kt`：Compose 界面。
+- `ui/ImgBedApp.kt`：页面切换与悬浮导航。
+- `ui/ImgBedTheme.kt`、`ui/UiComponents.kt`：主题、滚动标题与共享组件。
+- `ui/UploadScreen.kt`、`ui/RemoteFilesScreen.kt`、`ui/SettingsScreen.kt`：上传、文件与设置页面。
 
 ## 下一步
 
