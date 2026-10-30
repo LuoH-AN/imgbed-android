@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -30,6 +32,7 @@ import com.luoh.imgbed.model.NamingMode
 import com.luoh.imgbed.model.OutputFormat
 import com.luoh.imgbed.model.UploadChannel
 import com.luoh.imgbed.ui.agora.*
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 internal enum class SettingsPage(val title: String, val icon: ImageVector) {
     HOME("设置", Icons.Default.Settings),
@@ -78,10 +81,17 @@ internal fun SettingsScreen(viewModel: AppViewModel, page: SettingsPage, onOverl
         } else {
             SideEffect { if (page != SettingsPage.HOME) onOverlayChanged(true) }
             PageScaffold("设置") {
-                item {
-                    SettingsGroup("图床", SettingsPage.entries.filter { it != SettingsPage.HOME }.map { category ->
-                        { SettingsRow(category.icon, category.title, onClick = { navigate(category) }) }
-                    })
+                val groups = listOf(
+                    "连接" to listOf(SettingsPage.CONNECTION),
+                    "上传" to listOf(SettingsPage.UPLOAD, SettingsPage.COMPRESSION, SettingsPage.NAMING),
+                    "个性化" to listOf(SettingsPage.APPEARANCE, SettingsPage.MOTION),
+                )
+                groups.forEach { (title, categories) ->
+                    item {
+                        SettingsGroup(title, categories.map { category ->
+                            { SettingsRow(category.icon, category.title, onClick = { navigate(category) }) }
+                        })
+                    }
                 }
             }
             BackHandler(active && page != SettingsPage.HOME) { navigate(SettingsPage.HOME) }
@@ -185,25 +195,40 @@ private fun SettingsDetail(viewModel: AppViewModel, page: SettingsPage, onBack: 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditSetting(icon: ImageVector, title: String, value: String, keyboard: KeyboardType = KeyboardType.Text,
-    password: Boolean = false, emptyValue: String = "未设置", singleLine: Boolean = true, placeholder: String = "", onSave: (String) -> Unit) {
+internal fun EditSetting(icon: ImageVector, title: String, value: String, keyboard: KeyboardType = KeyboardType.Text,
+    password: Boolean = false, emptyValue: String = "未设置", singleLine: Boolean = true, placeholder: String = "",
+    enabled: Boolean = true, onSave: (String) -> Unit) {
     var editing by rememberSaveable { mutableStateOf(false) }
     var draft by rememberSaveable { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
     val active = LocalSettingsScrollRetentionActive.current
-    LaunchedEffect(active) { if (!active) editing = false }
-    SettingsRow(icon, title, if (password && value.isNotBlank()) "已设置" else value.ifBlank { emptyValue }, onClick = {
+    LaunchedEffect(active, enabled) { if (!active || !enabled) editing = false }
+    SettingsRow(icon, title, if (password && value.isNotBlank()) "已设置" else value.ifBlank { emptyValue }, enabled = enabled, onClick = {
         draft = value; visible = false; editing = true
     })
-    if (editing) AlertDialog(onDismissRequest = { editing = false }, title = { Text(title) }, text = {
-        OutlinedTextField(draft, { draft = it }, Modifier.fillMaxWidth(), label = { Text(title) }, singleLine = singleLine,
-            placeholder = if (placeholder.isBlank()) null else ({ Text(placeholder) }),
-            keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboard),
-            visualTransformation = if (password && !visible) PasswordVisualTransformation() else VisualTransformation.None,
-            trailingIcon = if (!password) null else ({ IconButton({ visible = !visible }) { Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (visible) "隐藏" else "显示") } }))
-    }, confirmButton = { TextButton({ onSave(draft); editing = false }) { Text("保存") } },
-        dismissButton = { TextButton({ editing = false }) { Text("取消") } })
+    if (editing) {
+        val input = rememberTextFieldState(value)
+        val text = if (password) draft else input.text.toString()
+        val parsedUrl = if (keyboard == KeyboardType.Uri) text.trim().toHttpUrlOrNull() else null
+        val valid = keyboard != KeyboardType.Uri || (parsedUrl != null && parsedUrl.username.isEmpty() && parsedUrl.password.isEmpty())
+        AlertDialog(onDismissRequest = { editing = false }, title = { Text(title) }, text = {
+            if (password) {
+                OutlinedTextField(draft, { draft = it }, Modifier.fillMaxWidth(), label = { Text(title) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = if (!visible) PasswordVisualTransformation() else VisualTransformation.None,
+                    trailingIcon = { IconButton({ visible = !visible }) { Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (visible) "隐藏" else "显示") } })
+            } else {
+                OutlinedTextField(state = input, modifier = Modifier.fillMaxWidth(), label = { Text(title) },
+                    lineLimits = if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(),
+                    placeholder = if (placeholder.isBlank()) null else ({ Text(placeholder) }),
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboard), isError = !valid,
+                    supportingText = if (!valid) ({ Text("请输入有效的 http:// 或 https:// 地址") }) else null)
+            }
+        }, confirmButton = { TextButton({ onSave(text.trim()); editing = false }, enabled = valid) { Text("保存") } },
+            dismissButton = { TextButton({ editing = false }) { Text("取消") } })
+    }
 }
 
 @Composable

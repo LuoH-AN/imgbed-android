@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +31,7 @@ internal fun PageScaffold(
     title: String,
     onBack: (() -> Unit)? = null,
     reserveDock: Boolean = true,
+    bottomAction: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
@@ -37,8 +39,19 @@ internal fun PageScaffold(
         CollapsingSettingsLazyScaffold(
             title = title,
             onBack = onBack ?: {},
-            contentBottomPadding = if (reserveDock) 112.dp else 32.dp,
+            contentBottomPadding = if (bottomAction != null) 200.dp else if (reserveDock) 112.dp else 32.dp,
             actions = actions,
+            floatingActionButton = {
+                if (bottomAction != null) {
+                    Surface(
+                        modifier = Modifier.padding(bottom = if (reserveDock) 96.dp else 0.dp)
+                            .widthIn(max = 840.dp).fillMaxWidth().padding(horizontal = 24.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shadowElevation = 4.dp,
+                    ) { Box(Modifier.padding(8.dp)) { bottomAction() } }
+                }
+            },
             content = content,
         )
     }
@@ -83,13 +96,27 @@ internal fun SettingsRow(
     SettingsItem(
         headlineContent = { Text(title) },
         leadingContent = { Icon(icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = trailing ?: if (value.isNotBlank()) ({
-            Text(value, Modifier.widthIn(max = 160.dp), style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        trailingContent = trailing ?: if (value.isNotBlank() || onClick != null) ({
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (value.isNotBlank()) Text(value, Modifier.widthIn(max = 128.dp), style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                    Modifier.padding(start = 4.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }) else null,
         modifier = Modifier.alpha(if (enabled) 1f else .38f)
             .then(if (onClick == null) Modifier else Modifier.clickable(enabled = enabled, onClick = onClick)),
     )
+}
+
+@Composable
+internal fun EmptyState(icon: ImageVector, title: String, action: String? = null, onAction: () -> Unit = {}) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(icon, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        if (action != null) TextButton(onAction) { Text(action) }
+    }
 }
 
 @Composable

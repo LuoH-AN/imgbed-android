@@ -60,10 +60,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val remoteLoading = _remoteLoading.asStateFlow()
     private val _remoteError = MutableStateFlow("")
     val remoteError = _remoteError.asStateFlow()
-    private var remoteQuery = ""
+    private val _remoteQuery = MutableStateFlow("")
+    val remoteQuery = _remoteQuery.asStateFlow()
 
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
+    private val _uploading = MutableStateFlow(false)
+    val uploading = _uploading.asStateFlow()
 
     private val _message = MutableStateFlow("")
     val message = _message.asStateFlow()
@@ -87,6 +90,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun remove(uri: Uri) = _documents.update { list -> list.filterNot { it.uri == uri } }
     fun clearCompleted() = _documents.update { list -> list.filterNot { it.status == TransferStatus.SUCCESS } }
     fun clearMessage() { _message.value = "" }
+    fun showMessage(value: String) { _message.value = value }
 
     fun saveCompression(value: CompressionSettings) {
         _compression.value = value
@@ -105,31 +109,41 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun uploadAll() {
         if (_busy.value) return
+        if (_token.value.isBlank()) {
+            _message.value = "请先设置服务连接"
+            return
+        }
+        val waiting = _documents.value.filter { it.status != TransferStatus.SUCCESS }
+        if (waiting.isEmpty()) return
+        val settings = _upload.value
+        val compression = _compression.value
+        val token = _token.value
         viewModelScope.launch {
             _busy.value = true
+            _uploading.value = true
             try {
-                val waiting = _documents.value.filter { it.status != TransferStatus.SUCCESS }
-                waiting.forEachIndexed { index, item -> uploadOne(item, index + 1) }
-                val success = _documents.value.count { it.status == TransferStatus.SUCCESS }
-                _message.value = "上传完成：$success/${_documents.value.size}"
+                waiting.forEachIndexed { index, item -> uploadOne(item, index + 1, settings, compression, token) }
+                val failed = _documents.value.count { it.status == TransferStatus.ERROR }
+                _message.value = if (failed == 0) "上传完成" else "$failed 个文件上传失败，可重试"
             } finally {
+                _uploading.value = false
                 _busy.value = false
             }
         }
     }
 
-    private suspend fun uploadOne(item: LocalDocument, index: Int) {
+    private suspend fun uploadOne(item: LocalDocument, index: Int, settings: UploadSettings, compression: CompressionSettings, token: String) {
         updateDocument(item.uri) { it.copy(status = TransferStatus.PROCESSING, progress = 0f, error = "") }
         runCatching {
             val prepared = compressor.prepare(
                 document = item,
-                settings = _compression.value,
-                namingMode = _upload.value.namingMode,
-                namingTemplate = _upload.value.namingTemplate,
+                settings = compression,
+                namingMode = settings.namingMode,
+                namingTemplate = settings.namingTemplate,
                 index = index,
             )
             updateDocument(item.uri) { it.copy(status = TransferStatus.UPLOADING) }
-            client.upload(prepared, _upload.value, _token.value) { progress ->
+            client.upload(prepared, settings, token) { progress ->
                 updateDocument(item.uri) { current -> current.copy(progress = progress) }
             }
         }.onSuccess { result ->
@@ -147,17 +161,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun refreshRemote(search: String = remoteQuery) {
+    fun refreshRemote(search: String = _remoteQuery.value, append: Boolean = false) {
         if (_busy.value) return
-        remoteQuery = search
+        _remoteQuery.value = search.trim()
+        val query = _remoteQuery.value
+        if (!append) {
+            _remote.value = RemotePage(emptyList(), emptyList(), 0)
+            _remoteLoaded.value = false
+        }
         viewModelScope.launch {
             _busy.value = true
             _remoteLoading.value = true
             _remoteError.value = ""
             runCatching {
-                client.list(_upload.value.serverUrl, _token.value, _remoteDirectory.value, search)
+                client.list(_upload.value.serverUrl, _token.value, _remoteDirectory.value, query,
+                    start = if (append) _remote.value.files.size else 0)
             }.onSuccess {
-                _remote.value = it
+                _remote.value = if (append) it.copy(
+                    files = (_remote.value.files + it.files).distinctBy { file -> file.id },
+                    directories = (_remote.value.directories + it.directories).distinct(),
+                ) else it
                 _remoteLoaded.value = true
             }.onFailure {
                 _remoteError.value = it.message ?: "读取文件列表失败"
@@ -165,6 +188,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             _remoteLoading.value = false
             _busy.value = false
         }
+    }
+
+    fun loadMoreRemote() {
+        if (_remote.value.files.size < _remote.value.totalCount) refreshRemote(append = true)
     }
 
     fun enterDirectory(value: String) {
@@ -209,8 +236,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess {
                     _message.value = successMessage
                     runCatching {
-                        client.list(_upload.value.serverUrl, _token.value, _remoteDirectory.value, remoteQuery)
-                    }.onSuccess { _remote.value = it }
+                        client.list(_upload.value.serverUrl, _token.value, _remoteDirectory.value, _remoteQuery.value)
+                    }.onSuccess { _remote.value = it; _remoteLoaded.value = true; _remoteError.value = "" }
                         .onFailure { _remoteError.value = it.message ?: "刷新失败，请重试" }
                 }
                 .onFailure { _message.value = it.message ?: "操作失败" }

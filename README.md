@@ -41,6 +41,16 @@ JPEG、PNG 与 WebP 使用 Android Bitmap 编码器。AVIF 使用 [awxkee/avif-c
 
 在 [Android Actions](https://github.com/LuoH-AN/imgbed-android/actions/workflows/android.yml) 下载 `imgbed-debug` 构建产物；推送 `v` 开头的标签会发布 APK 到 GitHub Release。
 
+需要直接安装时，在 [Releases](https://github.com/LuoH-AN/imgbed-android/releases) 下载 `.apk` 附件。Actions 的构建产物始终由 GitHub 包装为 ZIP；工作流关闭外层压缩，并检查 APK 内部文件完整性及签名。
+
+## 常用操作
+
+- 上传页底部固定显示选择、上传或重试按钮；长队列无需滚到底部。
+- 上传渠道、目录可直接在上传页修改；图片处理与服务连接的快捷入口返回原页面。
+- 上传完成后可复制单个链接或全部链接；缺少 API Token 时先进入连接设置。
+- 文件页直接切换类型、排序，支持清除搜索和加载更多；删除前确认文件名。
+- 设置按连接、上传、个性化分组；图床地址在保存前校验。
+
 ## 界面设计
 
 界面直接移植 [lyrics-android](https://github.com/LuoH-AN/lyrics-android/tree/4d87e530a4c68b15407f50262df835e111a1abdd) 的 Agora Compose 组件。来源和适配范围见 [设计说明](docs/design-system.md)。

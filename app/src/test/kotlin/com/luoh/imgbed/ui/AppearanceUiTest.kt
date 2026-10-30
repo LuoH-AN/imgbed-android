@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.net.Uri
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.luoh.imgbed.data.AppAppearance
 import com.luoh.imgbed.data.AppearancePreferences
+import com.luoh.imgbed.model.TransferStatus
+import com.luoh.imgbed.model.UploadChannel
 import com.luoh.imgbed.ui.agora.ColorSchemePreset
 import com.luoh.imgbed.ui.agora.SchemeStyle
 import com.luoh.imgbed.ui.agora.ThemeMode
@@ -46,6 +49,8 @@ class AppearanceUiTest {
 
     @Before fun reset() {
         compose.activity.getSharedPreferences("imgbed_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        compose.activity.getSharedPreferences("imgbed_settings", Context.MODE_PRIVATE).edit().clear().commit()
+        compose.activity.noBackupFilesDir.resolve("imgbed-api-token").delete()
         model = AppViewModel(compose.activity.application)
         model.saveAppearance(AppAppearance(mode = ThemeMode.LIGHT))
     }
@@ -154,6 +159,89 @@ class AppearanceUiTest {
         compose.onNodeWithText("轻放云端").assertDoesNotExist()
         compose.onNodeWithText("让分享，\n再轻一点。").assertDoesNotExist()
         saveScreenshot("upload-light")
+    }
+
+    @Test fun uploadShortcutReturnsToQueueWithBothBackActions() {
+        addDocuments(3)
+        compose.setContent { ImgBedApp(model) }
+        compose.onNodeWithText("图片处理").performScrollTo().performClick()
+        compose.onNodeWithText("快速方案").assertIsDisplayed()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithText("先设置服务连接").assertIsDisplayed()
+        compose.onNodeWithText("图片处理").performScrollTo().performClick()
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("先设置服务连接").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(3, model.documents.value.size) }
+    }
+
+    @Test fun channelAndFolderCanBeChangedWithoutLeavingUpload() {
+        compose.setContent { ImgBedApp(model) }
+        select("上传渠道", "Cloudflare R2")
+        compose.runOnIdle { assertEquals(UploadChannel.R2, model.upload.value.channel) }
+        clickRow("上传目录")
+        compose.onNode(hasSetTextAction()).performTextReplacement("photos/2026")
+        compose.onNodeWithText("保存").performClick()
+        compose.runOnIdle { assertEquals("photos/2026", model.upload.value.uploadFolder) }
+        compose.onNodeWithText("选择文件").assertIsDisplayed()
+    }
+
+    @Test fun remoteConnectionShortcutReturnsToFiles() {
+        compose.setContent { ImgBedApp(model) }
+        compose.onNodeWithText("文件").performClick()
+        compose.onNodeWithText("连接图床后查看文件").assertIsDisplayed()
+        compose.onNodeWithText("设置服务连接").performClick()
+        compose.onNodeWithText("ImgBed 地址").assertIsDisplayed()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithText("连接图床后查看文件").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(model.remoteError.value.isBlank()) }
+    }
+
+    @Test fun missingConnectionDoesNotProcessOrFailQueuedFiles() {
+        addDocuments(2)
+        compose.runOnIdle { model.uploadAll() }
+        compose.runOnIdle {
+            assertFalse(model.busy.value)
+            assertFalse(model.uploading.value)
+            assertTrue(model.documents.value.all { it.status == TransferStatus.WAITING })
+            assertEquals("请先设置服务连接", model.message.value)
+        }
+    }
+
+    @Test fun invalidServerAddressCannotBeSaved() {
+        compose.setContent { ImgBedApp(model) }
+        clickRow("服务连接")
+        clickRow("ImgBed 地址")
+        compose.onNode(hasSetTextAction()).performTextReplacement("invalid address")
+        compose.onNodeWithText("保存").assertIsNotEnabled()
+        compose.onNode(hasSetTextAction()).performTextReplacement("https://example.com")
+        compose.onNodeWithText("保存").performClick()
+        compose.runOnIdle { assertEquals("https://example.com", model.upload.value.serverUrl) }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun longQueueKeepsPrimaryActionVisibleBeforeAndAfterScrolling() {
+        addDocuments(20)
+        compose.setContent {
+            val view = LocalView.current
+            SideEffect { root = view }
+            ImgBedApp(model)
+        }
+        compose.onNodeWithText("先设置服务连接").assertIsDisplayed()
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(15)
+        compose.onNodeWithText("先设置服务连接").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithText("先设置服务连接").assertIsDisplayed()
+        saveScreenshot("upload-queue-light")
+    }
+
+    private fun addDocuments(count: Int) {
+        val uris = (1..count).map { index ->
+            val file = compose.activity.cacheDir.resolve("photo-$index.jpg")
+            file.writeBytes(byteArrayOf(1, 2, 3))
+            Uri.fromFile(file)
+        }
+        model.addUris(uris)
+        assertEquals(count, model.documents.value.size)
     }
 
     private fun saveScreenshot(name: String) {

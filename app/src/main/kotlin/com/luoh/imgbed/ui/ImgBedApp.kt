@@ -43,12 +43,18 @@ fun ImgBedApp(viewModel: AppViewModel) {
     ImgBedTheme(appearance) {
         var tab by rememberSaveable { mutableStateOf(AppTab.UPLOAD) }
         var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
+        var settingsReturnTab by rememberSaveable { mutableStateOf<AppTab?>(null) }
         var settingsOverlayVisible by remember { mutableStateOf(false) }
         val message by viewModel.message.collectAsStateWithLifecycle()
         val snackbar = remember { SnackbarHostState() }
         val pageStates = rememberSaveableStateHolder()
         val scrollRetention = remember { SettingsScrollRetention() }
         val keyboardVisible = WindowInsets.isImeVisible
+        val openSettings: (AppTab, SettingsPage) -> Unit = { source, page ->
+            settingsReturnTab = source
+            settingsPage = page
+            tab = AppTab.SETTINGS
+        }
         LaunchedEffect(message) {
             if (message.isNotBlank()) {
                 snackbar.showSnackbar(message)
@@ -68,23 +74,35 @@ fun ImgBedApp(viewModel: AppViewModel) {
                     ) {
                         pageStates.SaveableStateProvider(current.name) {
                             when (current) {
-                                AppTab.UPLOAD -> UploadScreen(viewModel, onCompression = {
-                                    settingsPage = SettingsPage.COMPRESSION
-                                    tab = AppTab.SETTINGS
-                                })
-                                AppTab.FILES -> RemoteFilesScreen(viewModel)
+                                AppTab.UPLOAD -> UploadScreen(viewModel) { openSettings(AppTab.UPLOAD, it) }
+                                AppTab.FILES -> RemoteFilesScreen(viewModel,
+                                    onConnection = { openSettings(AppTab.FILES, SettingsPage.CONNECTION) },
+                                    onUpload = { tab = AppTab.UPLOAD })
                                 AppTab.SETTINGS -> SettingsScreen(viewModel, settingsPage,
                                     onOverlayChanged = { settingsOverlayVisible = it },
-                                    navigate = { settingsPage = it })
+                                    navigate = { destination ->
+                                        settingsPage = destination
+                                        if (destination == SettingsPage.HOME) {
+                                            settingsReturnTab?.let { tab = it }
+                                            settingsReturnTab = null
+                                        }
+                                    })
                             }
                         }
                     }
                 }
                 val detailVisible = tab == AppTab.SETTINGS && (settingsPage != SettingsPage.HOME || settingsOverlayVisible) && maxWidth < 840.dp
                 if (!keyboardVisible && !detailVisible) {
-                    FloatingNavigation(tab, { tab = it }, Modifier.align(Alignment.BottomCenter))
+                    FloatingNavigation(tab, {
+                        if (it != tab) {
+                            settingsPage = SettingsPage.HOME
+                            settingsReturnTab = null
+                            tab = it
+                        }
+                    }, Modifier.align(Alignment.BottomCenter))
                 }
-                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(bottom = if (keyboardVisible || detailVisible) 8.dp else 104.dp))
+                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding()
+                    .padding(bottom = if (keyboardVisible || detailVisible) 8.dp else if (tab == AppTab.UPLOAD) 184.dp else 104.dp))
             }
         }
     }
