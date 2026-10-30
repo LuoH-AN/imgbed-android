@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,25 +37,31 @@ internal fun PageScaffold(
     actions: @Composable RowScope.() -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
+    val dockSpace = if (reserveDock) 112.dp else 16.dp
+    val density = LocalDensity.current
+    var actionHeight by remember { mutableStateOf(64.dp) }
     CompositionLocalProvider(LocalSettingsPaneBackButtonVisible provides (onBack != null)) {
-        CollapsingSettingsLazyScaffold(
-            title = title,
-            onBack = onBack ?: {},
-            contentBottomPadding = if (bottomAction != null) 200.dp else if (reserveDock) 112.dp else 32.dp,
-            actions = actions,
-            floatingActionButton = {
-                if (bottomAction != null) {
-                    Surface(
-                        modifier = Modifier.padding(bottom = if (reserveDock) 96.dp else 0.dp)
-                            .widthIn(max = 840.dp).fillMaxWidth().padding(horizontal = 24.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shadowElevation = 4.dp,
-                    ) { Box(Modifier.padding(8.dp)) { bottomAction() } }
-                }
-            },
-            content = content,
-        )
+        Box(Modifier.fillMaxSize()) {
+            // Reserve the actual viewport, so scrolling/focus never targets a row behind the dock.
+            CollapsingSettingsLazyScaffold(
+                modifier = Modifier.padding(bottom = if (bottomAction != null) dockSpace + actionHeight + 8.dp else if (reserveDock) dockSpace else 0.dp),
+                title = title,
+                onBack = onBack ?: {},
+                contentBottomPadding = 32.dp,
+                actions = actions,
+                content = content,
+            )
+            if (bottomAction != null) {
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = dockSpace)
+                        .widthIn(max = 840.dp).fillMaxWidth().padding(horizontal = 24.dp)
+                        .onSizeChanged { actionHeight = with(density) { it.height.toDp() } },
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shadowElevation = 4.dp,
+                ) { Box(Modifier.padding(8.dp)) { bottomAction() } }
+            }
+        }
     }
 }
 

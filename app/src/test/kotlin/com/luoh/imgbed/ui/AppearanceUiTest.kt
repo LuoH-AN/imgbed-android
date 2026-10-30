@@ -131,9 +131,9 @@ class AppearanceUiTest {
         compose.setContent { ImgBedApp(model) }
         compose.onNodeWithText("设置").performClick()
         compose.onNodeWithText("应用动效").performScrollTo()
-        println("Motion row before click: " + compose.onNodeWithText("应用动效").fetchSemanticsNode().boundsInRoot)
+        assertTrue(compose.onNodeWithText("应用动效").fetchSemanticsNode().boundsInRoot.bottom <
+            compose.onNodeWithText("文件").fetchSemanticsNode().boundsInRoot.top)
         compose.onNodeWithText("应用动效").performClick()
-        println("Settings after motion click: " + compose.onRoot().printToString())
         compose.onNodeWithText("减少动效").performScrollTo().performClick()
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("应用外观").assertIsDisplayed()
