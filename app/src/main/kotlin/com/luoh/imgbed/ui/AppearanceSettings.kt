@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -67,9 +69,11 @@ internal fun AppearanceSettings(appearance: AppAppearance, onSave: (AppAppearanc
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ColorDialog(initial: Int, onDismiss: () -> Unit, onApply: (Int) -> Unit, onReset: () -> Unit) {
-    var draft by rememberSaveable { mutableStateOf("#%06X".format(initial and 0xFFFFFF)) }
+    val input = rememberTextFieldState("#%06X".format(initial and 0xFFFFFF))
+    val draft = input.text.toString()
     val normalized = draft.trim().removePrefix("#").uppercase()
     val valid = normalized.matches(Regex("[0-9A-F]{6}"))
     val presets = listOf("#FFFFFF", "#9FD8FF", "#111111", "#FFB6D5", "#3F683D", "#B9CCB3")
@@ -78,14 +82,14 @@ private fun ColorDialog(initial: Int, onDismiss: () -> Unit, onApply: (Int) -> U
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 presets.forEach { hex ->
                     Box(Modifier.size(32.dp).clip(CircleShape).background(Color(android.graphics.Color.parseColor(hex)))
-                        .clickable { draft = hex }.semantics { contentDescription = "颜色 $hex" }, contentAlignment = Alignment.Center) {
+                        .clickable { input.edit { replace(0, length, hex) } }.semantics { contentDescription = "颜色 $hex" }, contentAlignment = Alignment.Center) {
                         if (hex.equals("#$normalized", true)) Icon(Icons.Default.Check, null,
                             tint = if (hex == "#111111" || hex == "#3F683D") Color.White else Color.Black, modifier = Modifier.size(18.dp))
                     }
                 }
             }
-            OutlinedTextField(draft, { draft = it.take(7) }, label = { Text("十六进制颜色") },
-                isError = !valid, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            OutlinedTextField(state = input, label = { Text("十六进制颜色") },
+                isError = !valid, lineLimits = TextFieldLineLimits.SingleLine, modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.ColorLens, null, tint = if (valid) Color(android.graphics.Color.parseColor("#$normalized")) else MaterialTheme.colorScheme.onSurfaceVariant) })
         }
     }, confirmButton = {

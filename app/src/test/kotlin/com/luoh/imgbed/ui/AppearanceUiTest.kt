@@ -110,25 +110,11 @@ class AppearanceUiTest {
 
     @Test fun customColorDialogValidatesInputAndPresetClearsCustomColor() {
         showAppearance()
-        // Drive dialog focus/label animation explicitly instead of allowing the test's
-        // auto-idler to advance an open text-input window indefinitely.
-        compose.mainClock.autoAdvance = false
-        compose.onNodeWithText("主调颜色").performClick()
-        // A Dialog mounts a separate Android view root. Flush its layout before
-        // advancing animations in that new root or locating the editable node.
-        repeat(3) {
-            compose.mainClock.advanceTimeByFrame()
-            compose.waitForIdle()
-        }
-        compose.mainClock.advanceTimeBy(500)
+        clickRow("主调颜色")
         compose.onNode(hasSetTextAction()).performTextReplacement("#XYZ")
-        compose.mainClock.advanceTimeBy(300)
         compose.onNodeWithText("应用", substring = false).assertIsNotEnabled()
         compose.onNode(hasSetTextAction()).performTextReplacement("#111111")
-        compose.mainClock.advanceTimeBy(300)
         compose.onNodeWithText("应用", substring = false).performClick()
-        compose.mainClock.advanceTimeBy(500)
-        compose.mainClock.autoAdvance = true
         val accent = android.graphics.Color.parseColor("#111111")
         assertScheme(colorSchemeForSeed(accent, style = SchemeStyle.NEUTRAL))
         select("配色方案", "森林")
