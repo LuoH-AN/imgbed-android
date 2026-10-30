@@ -15,9 +15,8 @@ import com.luoh.imgbed.model.LocalDocument
 import com.luoh.imgbed.model.NamingMode
 import com.luoh.imgbed.model.OutputFormat
 import com.luoh.imgbed.model.PreparedUpload
-import com.radzivon.bartoshyk.avif.coder.AvSpeed
-import com.radzivon.bartoshyk.avif.coder.AvifEncodingOptions
-import com.radzivon.bartoshyk.avif.coder.Coder
+import com.radzivon.bartoshyk.avif.coder.AvifSpeed
+import com.radzivon.bartoshyk.avif.coder.HeifCoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -130,7 +129,7 @@ class ImageCompressor(private val resolver: ContentResolver) {
     private fun decode(uri: Uri, maxLongEdge: Int): Bitmap {
         if (resolver.getType(uri)?.lowercase(Locale.ROOT) == "image/avif") {
             val bytes = resolver.openInputStream(uri).use { requireNotNull(it).readBytes() }
-            return scaleToLimit(Coder().decode(bytes), maxLongEdge)
+            return scaleToLimit(HeifCoder().decode(bytes), maxLongEdge)
         }
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
@@ -231,12 +230,12 @@ class ImageCompressor(private val resolver: ContentResolver) {
     private fun encode(bitmap: Bitmap, format: OutputFormat, quality: Int, avifSpeed: Int): ByteArray {
         if (format == OutputFormat.AVIF) {
             val speed = when {
-                avifSpeed <= 2 -> AvSpeed.EXTRA_SLOW
-                avifSpeed <= 5 -> AvSpeed.SLOW
-                avifSpeed <= 7 -> AvSpeed.MEDIUM
-                else -> AvSpeed.FAST
+                avifSpeed <= 2 -> AvifSpeed.TWO
+                avifSpeed <= 5 -> AvifSpeed.FIVE
+                avifSpeed <= 7 -> AvifSpeed.SEVEN
+                else -> AvifSpeed.TEN
             }
-            return Coder().encodeAvif(bitmap, options = AvifEncodingOptions(quality = quality, speed = speed))
+            return HeifCoder().encodeAvif(bitmap, quality = quality, speed = speed)
         }
         val stream = ByteArrayOutputStream()
         val compressFormat = when (format) {
