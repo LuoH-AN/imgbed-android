@@ -38,7 +38,6 @@ import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
-@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AppearanceUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private lateinit var model: AppViewModel
@@ -135,7 +134,8 @@ class AppearanceUiTest {
         compose.runOnIdle { assertTrue(AppearancePreferences(compose.activity).read().reduceMotion) }
     }
 
-    @Test fun darkAppearanceScreenshotUsesReferenceTypographyAndGroups() {
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun darkAppearanceScreenshotUsesReferenceTypographyAndGroups() {
         model.saveAppearance(AppAppearance(mode = ThemeMode.DARK, amoled = true,
             preset = ColorSchemePreset.LAVENDER, style = SchemeStyle.TONAL_SPOT))
         showAppearance()
@@ -143,7 +143,8 @@ class AppearanceUiTest {
         saveScreenshot("appearance-dark")
     }
 
-    @Test fun uploadScreenshotContainsNoPromotionalCopy() {
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun uploadScreenshotContainsNoPromotionalCopy() {
         compose.setContent {
             val view = LocalView.current
             SideEffect { root = view }
