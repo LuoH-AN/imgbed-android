@@ -1,0 +1,20 @@
+# 界面来源与适配
+
+基准是本地提供的 `lyrics-android`，提交 `4d87e530a4c68b15407f50262df835e111a1abdd`。
+其 Agora 组件来自 `newo-ether/Agora` 的 `239eaa93a08412f79495d711ed3b05f495f0127e`。
+
+`ui/agora` 直接保留参考仓库的主题、字阶、分组列表、滚动标题、圆形返回按钮、下拉菜单、页面过渡、设置覆盖层、滚动位置管理、减少动效策略、可拖动面板与窗口处理。改动只涉及包名和资源路径；删除未使用的聊天字阶。字体文件保持原样。
+
+默认外观与参考应用实际偏好一致：海洋、中性、跟随系统，AMOLED 与动态颜色默认关闭。设置组采用 24dp 外圆角、5dp 内圆角、2dp 行间距及 1dp tonal elevation。滚动标题采用原有 154dp 标题空间、66dp 行程和缓动曲线。弹出面板保留 0/.45/.94 锚点及 .9/350 弹簧参数。
+
+图床业务使用原组件渲染。按用户要求移除说明性小字，保留字段名称、当前设置值、文件元数据及错误。图床没有歌词播放业务，因此不移植歌词引擎及其逐字播放动效。悬浮导航是图床业务入口，使用同一 Surface、圆角、主题颜色与 250ms 选中反馈。
+
+## 来源与许可
+
+Agora 组件及相关验证测试的 GPL-3.0 文本保存在 `ui/agora/LICENSE`，并随 APK 打包到 `assets/licenses/Agora-GPL-3.0.txt`。源码保留来源声明。
+
+MiOutfit 字体来自参考仓库，内嵌元数据标注 Copyright 2021 The Outfit Project Authors。JetBrains Mono 内嵌元数据标注 Copyright 2020 The JetBrains Mono Project Authors。相应 SIL Open Font License 文本随 APK 打包到 `assets/licenses`。
+
+## 验证
+
+仅在 GitHub Actions 运行构建与测试。移植原组件的页面打断和滚动保留测试，增加应用外观持久化、动态色覆盖、自定义色校验、设置返回、减少动效及真实页面截图验证。

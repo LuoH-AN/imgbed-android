@@ -8,6 +8,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.luoh.imgbed.compression.ImageCompressor
 import com.luoh.imgbed.data.AppPreferences
+import com.luoh.imgbed.data.AppAppearance
+import com.luoh.imgbed.data.AppearancePreferences
 import com.luoh.imgbed.model.CompressionSettings
 import com.luoh.imgbed.model.LocalDocument
 import com.luoh.imgbed.model.RemoteFile
@@ -23,6 +25,14 @@ import kotlinx.coroutines.launch
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val resolver = application.contentResolver
     private val preferences = AppPreferences(application)
+    private val appearancePreferences = AppearancePreferences(application)
+    private val _appearance = MutableStateFlow(appearancePreferences.read())
+    val appearance = _appearance.asStateFlow()
+
+    fun saveAppearance(value: AppAppearance) {
+        _appearance.value = value
+        appearancePreferences.save(value)
+    }
     private val compressor = ImageCompressor(resolver)
     private val client = ImgBedClient(resolver)
 

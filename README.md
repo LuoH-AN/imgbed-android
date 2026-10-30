@@ -43,14 +43,14 @@ JPEG、PNG 与 WebP 使用 Android Bitmap 编码器。AVIF 使用 [awxkee/avif-c
 
 ## 界面设计
 
-布局参考 [lyrics-android](https://github.com/LuoH-AN/lyrics-android) 的大标题和分组设置视觉，使用独立编写的 Compose 组件：
+界面直接移植 [lyrics-android](https://github.com/LuoH-AN/lyrics-android/tree/4d87e530a4c68b15407f50262df835e111a1abdd) 的 Agora Compose 组件。来源和适配范围见 [设计说明](docs/design-system.md)。
 
-- 森林灰绿主题，跟随系统切换浅色和深色。
-- 随滚动收起的大标题，24dp 外圆角、5dp 内圆角的设置分组。
-- 悬浮胶囊导航、选中状态过渡、页面淡入淡出，以及页面滚动位置保留。
-- 上传主视觉、处理方案快捷入口、传输统计和状态队列。
-- 文件搜索、分类筛选、时间／名称排序、目录导航及明确的加载／错误状态。
-- 设置按服务连接、上传偏好、图片处理、文件命名拆分详情页。
+- 相同的 MiOutfit 字体、完整主题色角色、大标题、分组列表和菜单。
+- 外观支持跟随系统／浅色／深色、AMOLED、动态颜色、八种配色、五种方案风格和自定义主色。
+- 页面与设置覆盖层沿用原组件的弹簧、缩放和淡入淡出；文件操作使用同一可拖动面板。
+- 支持减少动效、系统动画开关，以及 840dp 宽屏下的 400dp 设置侧栏。
+- 保留悬浮底部导航；移除装饰插画、宣传文案和说明性小字。
+- Actions 运行主题交互、页面打断、滚动保留测试，并上传真实 Compose 渲染截图至 `ui-verification`。
 
 ## 项目结构
 

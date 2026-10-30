@@ -21,6 +21,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
       - run: ./gradlew testDebugUnitTest assembleDebug
+      - name: Upload UI verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-verification
+          path: |
+            app/build/reports/tests/testDebugUnitTest
+            app/build/reports/ui-screenshots
       - uses: actions/upload-artifact@v4
         with:
           name: imgbed-debug
